@@ -1,0 +1,199 @@
+---
+title: "AQI_Analysis"
+output: html_document
+date: "2023-02-01"
+---
+US AQI Exploratory Analysis: 
+
+Research question: Does our data reflect that the US should  be worried about their air quality level?  
+
+Hypothesis tests value: 
+$\alpha$ = 0.05 for any hypothesis tests run to determine significance 
+
+1. Clean data set, we will be looking for any duplicates in our data set as well as outliers in our data set. Finally, we will see if there are any blank entries in columns and deal with them accordingly. Data sets were cleaned using excel prior to this analysis. During this process, we made a subset of our dataset to focus on US Air quality and see if there were any significant trends in our country. 
+
+2. Visualizations: We will be doing general visualization of our data by looking at each value organized by country, for our world data set, and organized by city in the US. While these values do not include a date or time to see long term progression, the fixed values about air quality should give us enough insight to answer our initial question. 
+
+3. Analysis: Analyze the data and summarize our findings in order to determine whether or not the US should be worried about their Air quality in comparison with data from countries around the world. 
+
+To complete this analysis we will first make subsets of our data based on AQI value and create pairwise plots in order to determine whether or not there are any linear relations. In order to get a better understanding of our data, we will plot a bar plot of AQI value with countries as our y-axis to see any extreme values in our data set. We will then run a regression on any predictors that appear to have a linear relation with our response AQI value. To better understand Our data, we will plot histograms, including a blue line indicating the respective mean, and two read lines indicating one standard deviation above and below the mean. 
+```{r}
+# Loading libraries 
+library(ISLR2)
+library(tidyverse)
+library(dplyr)
+library(MASS)
+library(FNN)
+library(ggplot2)
+```
+
+```{r}
+US_air = read.csv("US_AQI.csv")
+World_air = read.csv("global air pollution dataset.csv")
+red_world_air = read.csv("Reduced_Datasets_AQI.csv")
+```
+```{r}
+head(US_air)
+head(World_air)
+head(red_world_air)
+```
+
+Filtering cities in the world based on Air Quality 
+```{r}
+# Filtering World cities with good and bad air quality 
+bad_air_World <- filter(World_air, World_air$AQI.Value > 400)
+good_air_World <- filter(World_air, World_air$AQI.Value < 25)
+```
+
+Summarize data from World 
+```{r}
+#Sorted by Countries categorized as BAD by our filter 
+avg_Co_Ozone_NO2_PM2.5_World_BAD <- summarise(
+  group_by(bad_air_World, Country),
+  Avg_AQI = mean(AQI.Value),
+  Avg_CO.AQI = mean(CO.AQI.Value),
+  Avg_Ozone.AQI = mean(Ozone.AQI.Value),
+  Avg_No2.Aqi = mean(NO2.AQI.Value), 
+  Avg_PM2.5.AQI = mean(PM2.5.AQI.Value)
+)
+# Sorted by countries categorized as GOOD by our filter 
+avg_Co_Ozone_NO2_PM2.5_World_BAD 
+avg_Co_Ozone_NO2_PM2.5_World_GOOD <- summarise(
+  group_by(good_air_World, Country),
+  Avg_AQI = mean(AQI.Value),
+  Avg_CO.AQI = mean(CO.AQI.Value),
+  Avg_Ozone.AQI = mean(Ozone.AQI.Value),
+  Avg_No2.Aqi = mean(NO2.AQI.Value), 
+  Avg_PM2.5.AQI = mean(PM2.5.AQI.Value)
+)
+# General summary of all of the bad values 
+avg_Co_Ozone_NO2_PM2.5_World_GOOD
+avg_BAD_World <- summarise(
+  group_by(bad_air_World),
+  Avg_AQI = mean(AQI.Value),
+  Avg_CO.AQI = mean(CO.AQI.Value),
+  Avg_Ozone.AQI = mean(Ozone.AQI.Value),
+  Avg_No2.Aqi = mean(NO2.AQI.Value), 
+  Avg_PM2.5.AQI = mean(PM2.5.AQI.Value)
+)
+avg_GOOD_World <- summarise(
+  group_by(good_air_World),
+  Avg_AQI = mean(AQI.Value),
+  Avg_CO.AQI = mean(CO.AQI.Value),
+  Avg_Ozone.AQI = mean(Ozone.AQI.Value),
+  Avg_No2.Aqi = mean(NO2.AQI.Value), 
+  Avg_PM2.5.AQI = mean(PM2.5.AQI.Value)
+)
+avg_BAD_World
+avg_GOOD_World
+```
+```{r}
+plot(avg_Co_Ozone_NO2_PM2.5_World_BAD)
+plot(avg_Co_Ozone_NO2_PM2.5_World_GOOD)
+```
+Interpretation of plots and data: 
+  
+  After seeing the output there is a clear difference in each variable with a noticeable gap in the CO value between the countries categorized as good (AQI < 25) and bad (AQI > 400) as well as their respective PM2.5 levels. While countries categorized as good had a mean of 0.2811861 for CO, countries categorized as bad had a mean CO level of 3.302326. For mean PM2.5 values countries categorized as good had a value of 17.12577 in comparison to the countries categorized as bad whose mean value was 442.1163. Numerically, this mean countries categorized as bad had a CO value that was over 10 times larger than that of their counterparts. The mean PM2.5 for countries categorized as bad was over 25 times larger than that of countries categorized as bad. The affects of these two variables on the overall AQI (Air quality index), can be seen in our pairwise plots of each subcategory.There appears to be a strong linear relation between PM2.5 and AQI, as can be seen in the pairwise plot of countries categorized as bad. There also appears to be a moderately strong strong relation between Ozone level. The remaining predictors, CO and NO2 appear to have a moderately linear relation as well, however this relation is less linear in comparison to the other two predictors. 
+  In order to continue this analysis, we will do a more general plot to get a better idea of how to proceed with our analysis and make useful conclusions about our data set. 
+
+
+```{r}
+p <- ggplot(World_air, aes(x= AQI.Value, y= Country, color = AQI.Category)) + geom_bar(stat = "identity", fill = "white")
+p + theme(axis.text.y = element_text(size = 2))
+```
+```{r}
+p2 <- ggplot(red_world_air, aes(x= AQI.Value, y= Country, color = AQI.Category)) + geom_bar(stat = "identity", fill = "white")
+p2
+```
+Interpretation: After looking at all of the countries and their respective AQI values, we then looked at a subset of the data including the countries containing cities with the best and worst AQI values. It is clear that India has the most observations that fall under hazardous-very unhealthy, as categorized by our data set. This  is partially due to the fact that India has the most observations recorded in our data set, however, it is important to note that the smallest part of the bar above India is AQI categorized as "good." In Comparison, the US also has a bar that appears to be mostly categorized as "bad" or "unhealthy," with the smallest AQI category being "good." When looking at the subsetted data, we can see a clear difference between the distribution in air quality category, with Bolivia, Australia, Uruguay, Peru, and Papua New Guinea, and the remaining countries. While this was intended, since we subsetted this data based on best and worst air quality, it is important to see the difference between their respective distributions. The countries with the best air quality have bars that are mostly red, indicating that the observations made their mostly reflected good air quality. In comparison, the remaining countries had an uneven distribution between "good" and the other categories, with a majority of their bars reflecting very unhealthy- hazardous. These differences should be kept in consideration throughout the analysis, however, it is important to remember this data set has a varying level of observations in each country, which will impact our interpretation. 
+
+```{r}
+mod1 <- lm(AQI.Value ~ NO2.AQI.Value + Ozone.AQI.Value + PM2.5.AQI.Value + NO2.AQI.Value*Ozone.AQI.Value, data = World_air)
+plot(AQI.Value ~ NO2.AQI.Value, data = World_air)
+mod2 <- lm(AQI.Value ~ NO2.AQI.Value, data = World_air)
+abline(mod2, col ="red")
+summary(mod2)
+par(mfrow = c(2,2))
+plot(mod2)
+summary(mod1)
+plot(mod1)
+```
+The regression run with AQI value as the response and NO2 value as the predictor has a mostly linear relation, however, it is not homoskedastic, since our variance is much larger in the beginning. This is reflected in our Residuals vs fitted graph, where we can see that our model has difficulty modelling values at the end of NO2 value, since there are less observations, and the variance changes. This means this model will do a poor job making predictions, unless we model the changes in variance. In comparison, our first linear regression model,based on each value that reflected a linear relation with AQI value as the response, also faces similar issues with our data set. This is most likely due to the differing number of observations at each AQI value. While our first linear regression model grows at a slower rate, it is important to note the impact of each factor, as indicated in our summary of mod1, is relatively small with our interaction term having a minute negative impact on our slope. Comparing the r-squared values, we can see our first model does a much better job predicting values compared to our second model with only one predictor. This is expected, since adding predictors tends to increase r-squared, however, due to the changes in variance throughout our observations, it is still important to not add to much weight to our regression models since their predictions cannot maintain the same level of accuracy.
+```{r}
+par(mfrow = c(1,1))
+plot(AQI.Value ~ PM2.5.AQI.Value, data = World_air)
+mod3 <- lm(AQI.Value ~ PM2.5.AQI.Value, data = World_air)
+abline(mod3, col ="blue")
+par(mfrow = c(2,2))
+plot(mod3)
+summary(mod3)
+```
+This particular model seems to model our data with PM2.5 AQI value as the predictor very well, as reflected in our plot including our regression model as well as the multiple r-squared value of 0.969. Since our values in our scatter plot appear to have relatively consistent residuals, we can expect our data from this model to be more accurate. Although this model does a better job in comparison to our prior model where NO2 was the only predictor, we need to take into account our models accuracy for larger values. Since our normal Q-Q model shows the observations deviating towards the end, we can see our model's accuracy is worse for data points towards the end of our data set. This inaccuracy is partially due to the spread of our observations, however, it should be noted for future reference. 
+```{r}
+par(mfrow = c(1,1))
+plot(AQI.Value ~ Ozone.AQI.Value, data = World_air)
+mod4 <- lm(AQI.Value ~ Ozone.AQI.Value, data = World_air)
+abline(mod4, col ="green")
+summary(mod4)
+par(mfrow = c(2,2))
+plot(mod4)
+```
+This final regression model with Ozone value as the predictor does not seem to have consistent variance, with values at the beginning having a much larger variance than those at the end. This also seems to have a low adjusted r-squared value of 0.1643, indicating it may not be the best model to make predictions with in the future. The residuals vs fitted plot emphasizes the changes in variance, as can be seen by the narrowing of our points plotted. Overall, our regression model with Ozone as the predictor is able to model the linear relation, however the changes in variance impacted its over all accuracy. 
+Plotting regressions with confidence intervals. 
+```{r}
+par(mfrow=c(2,2))
+hist(as.numeric(World_air$AQI.Value), main = "Histogram of World air quality Index", xlab= "AQI Value", col = "Light Blue3")
+means <- mean(World_air$AQI.Value)
+abline(v=means, col = "red", lwd = 3)
+sd1 <- sd(World_air$AQI.Value)
+sd1_pos_world <- means + sd1
+sd1_neg_world <- means - sd1
+abline(v = sd1_pos_world, col = "blue", lwd =3, lty =2)
+abline(v = sd1_neg_world, col = "blue", lwd = 3, lty =2)
+hist(bad_air_World$AQI.Value, main = "World AQI Value (AQI > 400)", xlab= "AQI Value", col = "purple")
+means <- mean(bad_air_World$AQI.Value)
+abline(v=means, col = "red", lwd = 3)
+sd <- sd(bad_air_World$AQI.Value)
+sd1_pos <- means + sd
+sd1_neg <- means - sd
+abline(v = sd1_pos, col = "blue", lwd =3, lty =2)
+abline(v = sd1_neg, col = "blue", lwd = 3, lty =2)
+hist(good_air_World$AQI.Value, main = "World AQI Value (AQI < 25)", xlab= "AQI Value", col = "green")
+means <- mean(good_air_World$AQI.Value)
+abline(v=means, col = "red", lwd = 3)
+sd <- sd(good_air_World$AQI.Value)
+sd1_pos <- means + sd
+sd1_neg <- means - sd
+abline(v = sd1_pos, col = "blue", lwd =3, lty =2)
+abline(v = sd1_neg, col = "blue", lwd = 3, lty =2)
+hist(US_air$AQI.Value, main = "AQI Value in the US", xlab= "AQI Value", col = "magenta")
+means <- mean(US_air$AQI.Value)
+abline(v=means, col = "red", lwd = 3)
+sd <- sd(US_air$AQI.Value)
+sd1_pos <- means + sd
+sd1_neg <- means - sd
+abline(v = sd1_pos, col = "blue", lwd =3, lty =2)
+abline(v = sd1_neg, col = "blue", lwd = 3, lty =2)
+hist(bad_air_US$AQI.Value, main = "AQI in the US (AQI > 400)", xlab= "AQI Value", col = "pink")
+means_US <- mean(bad_air_US$AQI.Value)
+abline(v=means, col = "red", lwd = 3)
+sd_US <- sd(US_air$AQI.Value)
+sd1_pos_US <- means + sd
+sd1_neg_US <- means - sd
+abline(v = sd1_pos, col = "blue", lwd =3, lty =2)
+abline(v = sd1_neg, col = "blue", lwd = 3, lty =2)
+hist(good_air_US$AQI.Value, main = "AQI US (AQI < 25)", xlab= "AQI Value", col = "orange")
+means <- mean(good_air_US$AQI.Value)
+abline(v=means, col = "red", lwd = 3)
+sd <- sd(good_air_US$AQI.Value)
+sd1_pos <- means + sd
+sd1_neg <- means - sd
+abline(v = sd1_pos, col = "blue", lwd =3, lty =2)
+abline(v = sd1_neg, col = "blue", lwd = 3, lty =2)
+
+```
+  When looking at these histograms we see that all of our observations have a histogram that is skewed right with a long left tail. This is a good indication that most of the cities fall within an AQI value between 10-120. This is a good indication that overall, our data does not reflect that countries have a air quality considered dangerous or hazardous. This histograms that have a left skew appear in our subsetted data. This makes sense since we know most of the observations with an AQI greater than 400 were from India, which has a collection of observations that have an AQI value of 500. For the histogram of countries with an AQI less than 25, we also see a left skew, since there is a lower frequency of countries with an AQI value less than 20.
+
+  When comparing these histograms to that of the US, we see the overall distribution of AQI values is less than or equal to 100. The range of one standard deviation below and above the mean is between 56-100, which is an even better range compared to the world AQI value. When looking at our subsets of the US, we see one bar between 450-500. This is a good sign, since each observation has a frequency of 1, meaning there is only one observation of these extreme values given a respective AQI value greater than 400. For AQI value less than 25, we see a left skewed histogram. This makes sense, since there would only be a few observations with an AQI value less than 20. Overall, it does not appear the US has anything to worry about in terms of overall air quality. 
+
+Conclusion: After analyzing the data and looking at our findings, we can see there is no reason to worry about the air quality in the US, since the overall histogram of air quality in the US indicates that most values have an AQI value between 56-100. While there are some observations in the US that have an air quality value greater than 400, there are only a few observations of these extreme values. The subset of US data is very similar to that of the world data, where each observation is a country. This is good since they both had a right skew, indicating a majority of values fell on the lower range of AQI value, with a long right tail indicating values greater than 150. While there are certainly places in the US that are in danger in terms of their air quality, as indicated by observations greater than 400, overall, the US has cities that do not have to worry about their air quality level. If we do become concerned about the air quality in the US, decreasing our PM2.5 values and NO2 values according to their AQI value, will help improve air quality overall. One of the biggest factors in Air quality level is PM2.5, so if we become concerned, we should focus on reducing this level first, as indicated by our linear regression model. While we cannot extrapolate future points from our regression models, this positive linear trend between NO2 and PM2.5 should not be ignored. With caution, I would advice cities in the US to decrease PM2.5 values and NO2 values in an attempt to decrease overall AQI value. In conclusion, the US does not appear to have any issues with overall Air quality level, and should not be worried about their air quality level according to this data set. In the future, efforts can be made to decrease PM2.5 and NO2 in order to try to decrease overall Air quality level based on the trends we saw in our regression models.  
